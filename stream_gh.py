@@ -6,7 +6,7 @@ burchakda muallif imzosi va hazilomuz El Klasiko kartasi.
 import json, math, os, subprocess, sys, threading, time
 from PIL import Image, ImageDraw, ImageFont
 
-W, H, FPS = 1080, 1920, 12
+W, H, FPS = 1920, 1080, 12
 BASE = os.path.dirname(os.path.abspath(__file__))
 SSH = ["ssh", "-i", os.environ.get("SSH_KEY_PATH", "key.pem"),
        "-o", "ConnectTimeout=12", "-o", "StrictHostKeyChecking=no",
@@ -80,63 +80,62 @@ def render(t):
         s = dict(stats)
     img = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(img, "RGBA")
-    # fon bezaklari
-    for (cx, cy, r, col) in [(980, 120, 300, (45, 212, 191, 16)), (60, 1750, 340, (56, 150, 248, 14))]:
+    for (cx, cy, r, col) in [(1830, 90, 320, (45, 212, 191, 16)), (40, 1020, 360, (56, 150, 248, 14))]:
         d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=col)
 
     # --- Sarlavha ---
-    txt(d, 56, 46, "QUIZER", F(True, 66), CYAN)
-    txt(d, 56, 122, "JONLI STATISTIKA EFIRI", F(True, 30), GRAY)
+    txt(d, 56, 34, "QUIZER", F(True, 62), CYAN)
+    txt(d, 58, 104, "JONLI STATISTIKA EFIRI", F(True, 27), GRAY)
     pulse = 0.55 + 0.45 * math.sin(t * 3.2)
-    d.ellipse([856, 62, 890, 96], fill=(239, 68, 68, int(140 + 115 * pulse)))
-    txt(d, 900, 58, "LIVE", F(True, 40), WHITE)
-    clock = s.get("time_tashkent", "--:--")
-    txt(d, 1024, 118, clock, F(True, 40), WHITE, anchor="ra")
-    txt(d, 1024, 164, s.get("date_tashkent", ""), F(False, 26), GRAY, anchor="ra")
+    d.ellipse([1470, 44, 1502, 76], fill=(239, 68, 68, int(140 + 115 * pulse)))
+    txt(d, 1514, 40, "LIVE", F(True, 38), WHITE)
+    txt(d, 1864, 40, s.get("time_tashkent", "--:--"), F(True, 44), WHITE, anchor="ra")
+    txt(d, 1864, 92, s.get("date_tashkent", ""), F(False, 25), GRAY, anchor="ra")
 
     if not s:
-        txt(d, W // 2, 900, "Ma'lumot yuklanmoqda...", F(True, 44), GRAY, anchor="ma")
+        txt(d, W // 2, 520, "Ma'lumot yuklanmoqda...", F(True, 46), GRAY, anchor="ma")
         return img
 
     tot, tod = s["totals"], s["today"]
 
-    # --- (4) Hozir onlayn ---
-    card(d, [48, 210, 1032, 372])
-    on5 = anim("on5", s.get("online5", 0), 0.2)
-    gp = 0.5 + 0.5 * math.sin(t * 2.6)
-    d.ellipse([92, 262, 138, 308], fill=(52, 211, 153, int(120 + 135 * gp)))
-    txt(d, 162, 240, "HOZIR ONLAYN", F(True, 34), GRAY)
-    txt(d, 162, 282, fmt(on5), F(True, 62), GREEN)
-    txt(d, 1000, 258, "oxirgi 30 daqiqada faol:", F(False, 28), GRAY, anchor="ra")
-    txt(d, 1000, 296, fmt(anim("on30", s.get("online30", 0), 0.2)), F(True, 44), WHITE, anchor="ra")
-    if s.get("online5", 0) == 0 and s.get("online30", 0) == 0:
-        txt(d, W // 2, 388, "Tungi rejim — shahar uxlayapti, ertalab jonlanamiz", F(False, 28), GOLD, anchor="ma")
-
-    # --- (2) Katta raqamlar ---
+    # --- (2) Katta raqamlar: 4 ta karta qator ---
     cells = [("FOYDALANUVCHILAR", "users", CYAN), ("TESTLAR", "tests", BLUE),
              ("URINISHLAR", "attempts", GOLD), ("SAVOLLAR", "questions", GREEN)]
-    cw, ch, gap, x0, y0 = 476, 196, 32, 48, 440
+    cw, ch, gap, x0, y0 = 438, 168, 28, 56, 168
     for i, (label, key, col) in enumerate(cells):
-        x = x0 + (i % 2) * (cw + gap)
-        y = y0 + (i // 2) * (ch + gap)
-        card(d, [x, y, x + cw, y + ch], CARD2)
-        d.rectangle([x, y + 18, x + 8, y + ch - 18], fill=col)
-        txt(d, x + 34, y + 26, label, F(True, 30), GRAY)
-        txt(d, x + 34, y + 72, fmt(anim(key, tot[key])), F(True, 74), WHITE)
+        x = x0 + i * (cw + gap)
+        card(d, [x, y0, x + cw, y0 + ch], CARD2)
+        d.rectangle([x, y0 + 16, x + 8, y0 + ch - 16], fill=col)
+        txt(d, x + 32, y0 + 24, label, F(True, 29), GRAY)
+        txt(d, x + 32, y0 + 66, fmt(anim(key, tot[key])), F(True, 72), WHITE)
 
-    # --- Bugun lentasi ---
-    by = 896
-    card(d, [48, by, 1032, by + 84], (20, 46, 40))
+    # --- Chap ustun: onlayn + bugun ---
+    card(d, [56, 372, 880, 540])
+    gp = 0.5 + 0.5 * math.sin(t * 2.6)
+    d.ellipse([96, 428, 140, 472], fill=(52, 211, 153, int(120 + 135 * gp)))
+    txt(d, 162, 404, "HOZIR ONLAYN", F(True, 33), GRAY)
+    txt(d, 162, 446, fmt(anim("on5", s.get("online5", 0), 0.2)), F(True, 60), GREEN)
+    txt(d, 848, 420, "oxirgi 30 daqiqada faol:", F(False, 27), GRAY, anchor="ra")
+    txt(d, 848, 458, fmt(anim("on30", s.get("online30", 0), 0.2)), F(True, 42), WHITE, anchor="ra")
+    if s.get("online5", 0) == 0 and s.get("online30", 0) == 0:
+        txt(d, 468, 556, "Tungi rejim — shahar uxlayapti, ertalab jonlanamiz", F(False, 27), GOLD, anchor="ma")
+
+    card(d, [56, 596, 880, 692], (20, 46, 40))
     line = (f"BUGUN:  +{tod['users']} yangi   •   {tod['tests']} test   •   "
             f"{tod['attempts']} urinish   •   {tod['uploads_done']} tayyor")
-    f = F(True, 30)
-    txt(d, W // 2, by + 24, fit(line, f, 940), f, GREEN, anchor="ma")
+    f = F(True, 32)
+    txt(d, 468, 626, fit(line, f, 790), f, GREEN, anchor="ma")
 
-    # --- (3) Universitetlar faolligi ---
-    uy = 1030
+    # --- Oxirgi testlar (chap past) ---
+    txt(d, 56, 736, "OXIRGI TESTLAR", F(True, 31), WHITE)
+    for j, tt in enumerate(s.get("recent_tests", [])[:4]):
+        txt(d, 56, 786 + j * 48, "•  " + fit(tt["title"], F(False, 31), 800), F(False, 31), GRAY)
+
+    # --- (3) Universitetlar faolligi (o'ng katta blok) ---
+    ux, uy = 936, 372
     scope = "bugun" if s.get("top_scope") == "today" else "jami"
-    txt(d, 56, uy, "UNIVERSITETLAR FAOLLIGI", F(True, 36), WHITE)
-    txt(d, 1024, uy + 6, f"({scope})", F(False, 28), GRAY, anchor="ra")
+    txt(d, ux, uy, "UNIVERSITETLAR FAOLLIGI", F(True, 34), WHITE)
+    txt(d, 1864, uy + 4, f"({scope})", F(False, 27), GRAY, anchor="ra")
     tops = s.get("top_universities", [])[:5]
     total_att = max(tot["attempts"], 1)
     shown = sum(x["c"] for x in tops)
@@ -145,35 +144,29 @@ def render(t):
     if rest > 0 and len(rows) >= 1:
         rows.append(("Boshqalar", rest))
     maxc = max([c for _, c in rows], default=1)
-    ry = uy + 62
+    ry = uy + 64
     for name, c in rows[:5]:
-        txt(d, 56, ry, fit(name, F(False, 30), 700), F(False, 30), WHITE)
-        txt(d, 1024, ry, fmt(c), F(True, 32), CYAN, anchor="ra")
-        bw = int(968 * (c / maxc) * (0.25 + 0.75 * min(1.0, (t % 100) / 1.5)))
-        d.rounded_rectangle([56, ry + 44, 56 + max(bw, 26), ry + 62], radius=9, fill=(45, 212, 191, 190))
-        ry += 84
+        txt(d, ux, ry, fit(name, F(False, 30), 640), F(False, 30), WHITE)
+        txt(d, 1864, ry, fmt(c), F(True, 32), CYAN, anchor="ra")
+        bw = int(928 * (c / maxc) * (0.25 + 0.75 * min(1.0, (t % 100) / 1.5)))
+        d.rounded_rectangle([ux, ry + 44, ux + max(bw, 26), ry + 62], radius=9, fill=(45, 212, 191, 190))
+        ry += 86
     if not rows:
-        txt(d, 56, ry, "Hozircha ma'lumot yo'q", F(False, 32), GRAY)
+        txt(d, ux, ry, "Hozircha ma'lumot yo'q", F(False, 32), GRAY)
 
-    # --- Oxirgi testlar ---
-    ty = 1480
-    txt(d, 56, ty, "OXIRGI TESTLAR", F(True, 32), WHITE)
-    for j, tt in enumerate(s.get("recent_tests", [])[:3]):
-        txt(d, 56, ty + 52 + j * 46, "•  " + fit(tt["title"], F(False, 31), 940), F(False, 31), GRAY)
+    # --- El Klasiko (o'ng past) ---
+    ey = 848
+    card(d, [936, ey, 1864, ey + 128], (24, 32, 58))
+    b = barsa.resize((92, 92), Image.LANCZOS); r_ = real.resize((92, 92), Image.LANCZOS)
+    img.paste(b, (972, ey + 18), b); img.paste(r_, (1736, ey + 18), r_)
+    txt(d, 1400, ey + 12, "EL KLASIKO", F(True, 26), GOLD, anchor="ma")
+    txt(d, 1400, ey + 44, "1 — 2", F(True, 50), WHITE, anchor="ma")
+    txt(d, 1400, ey + 102, "Mbappé 41', 88'  •  Raphinha 61'", F(False, 22), GRAY, anchor="ma")
 
-    # --- El Klasiko (hazilomuz burchak) ---
-    ey = 1652
-    card(d, [48, ey, 1032, ey + 126], (24, 32, 58))
-    b = barsa.resize((88, 88), Image.LANCZOS); r_ = real.resize((88, 88), Image.LANCZOS)
-    img.paste(b, (76, ey + 19), b); img.paste(r_, (916, ey + 19), r_)
-    txt(d, W // 2, ey + 10, "EL KLASIKO", F(True, 26), GOLD, anchor="ma")
-    txt(d, W // 2, ey + 42, "1 — 2", F(True, 52), WHITE, anchor="ma")
-    txt(d, W // 2, ey + 102, "Mbappé 41', 88'  •  Raphinha 61'", F(False, 22), GRAY, anchor="ma")
-
-    # --- Muallif imzosi (burchak) ---
-    txt(d, 1024, 1846, "Hakimov Azizbek", F(True, 29), WHITE, anchor="ra")
-    txt(d, 1024, 1882, "Full Stack dasturchi va tibbiyot talabasi", F(False, 23), GRAY, anchor="ra")
-    txt(d, 56, 1862, "devmed.uz/quizer", F(False, 24), (90, 120, 140), anchor="la")
+    # --- Imzo (burchak) ---
+    txt(d, 1864, 1004, "Hakimov Azizbek", F(True, 29), WHITE, anchor="ra")
+    txt(d, 1864, 1040, "Full Stack dasturchi va tibbiyot talabasi", F(False, 23), GRAY, anchor="ra")
+    txt(d, 56, 1022, "devmed.uz/quizer", F(False, 24), (90, 120, 140), anchor="la")
     return img
 
 def diag(push):
