@@ -176,8 +176,23 @@ def render(t):
     txt(d, 56, 1862, "devmed.uz/quizer", F(False, 24), (90, 120, 140), anchor="la")
     return img
 
+def diag(push):
+    print("DIAGNOSTIKA boshlanmoqda...", flush=True)
+    cmd = ["ffmpeg", "-y", "-v", "info", "-re",
+           "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=15", "-t", "6",
+           "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast", "-b:v", "600k",
+           "-f", "flv", push]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=40)
+        print("DIAG rc:", r.returncode, flush=True)
+        print("DIAG stderr:\n", (r.stderr or "")[-2200:], flush=True)
+    except subprocess.TimeoutExpired as e:
+        print("DIAG: 40s timeout — ulanish osilib qoldi", flush=True)
+        print(((e.stderr or b"")[-1200:]).decode("utf-8", "replace"), flush=True)
+
 def main():
     push = os.environ["RTMP_PUSH"]
+    diag(push)
     th = threading.Thread(target=fetch_loop, daemon=True); th.start()
     print("Birinchi statistika kutilmoqda...", flush=True)
     for _ in range(30):
