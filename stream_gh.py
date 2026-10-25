@@ -106,7 +106,7 @@ def build_glass():
     d.text((1514, 40), "LIVE", font=F(True, 38), fill=TITLE + (255,))
     d.text((162, 404), "HOZIR ONLAYN", font=F(True, 33), fill=LABEL + (255,))
     d.text((848, 420), "oxirgi 30 daqiqada faol:", font=F(False, 27), fill=SUB + (255,), anchor="ra")
-    d.text((936, 372), "UNIVERSITETLAR FAOLLIGI", font=F(True, 34), fill=TITLE + (255,))
+    d.text((936, 372), "REYTING — TOP 3", font=F(True, 34), fill=TITLE + (255,))
     d.text((56, 736), "OXIRGI TESTLAR", font=F(True, 31), fill=TITLE + (255,))
     d.text((1400, 860), "EL KLASIKO", font=F(True, 26), fill=GOLD + (255,), anchor="ma")
     d.text((1400, 892), "1 — 2", font=F(True, 50), fill=TITLE + (255,), anchor="ma")
@@ -156,6 +156,45 @@ def render(t):
     if not s:
         d.text((W // 2, 520), "Ma'lumot yuklanmoqda...", font=F(True, 46), fill=SUB + (255,), anchor="ma")
         return img.convert("RGB")
+    tot, tod = s["totals"], s["today"]
+    for (x, y), key in zip([(56, 168), (522, 168), (988, 168), (1454, 168)],
+                           ["users", "tests", "attempts", "questions"]):
+        d.text((x + 32, y + 64), fmt(anim(key, tot[key])), font=F(True, 74), fill=TITLE + (255,))
+    gp = 0.5 + 0.5 * math.sin(t * 2.6)
+    d.ellipse([96, 428, 140, 472], fill=(52, 211, 153, int(120 + 135 * gp)))
+    d.text((162, 444), fmt(anim("on5", s.get("online5", 0), 0.2)), font=F(True, 62), fill=GREEN + (255,))
+    d.text((848, 456), fmt(anim("on30", s.get("online30", 0), 0.2)), font=F(True, 42), fill=TITLE + (255,), anchor="ra")
+    if s.get("online5", 0) == 0 and s.get("online30", 0) == 0:
+        d.text((468, 556), "Tungi rejim — shahar uxlayapti, ertalab jonlanamiz", font=F(False, 27), fill=GOLD + (255,), anchor="ma")
+    line = (f"BUGUN:  +{tod['users']} yangi   •   {tod['tests']} test   •   "
+            f"{tod['attempts']} urinish   •   {tod['uploads_done']} tayyor")
+    f = F(True, 31)
+    d.text((468, 628), fit(d, line, f, 780), font=f, fill=GREEN + (255,), anchor="ma")
+    for j, tt in enumerate(s.get("recent_tests", [])[:4]):
+        d.text((56, 786 + j * 48), "•  " + fit(d, tt["title"], F(False, 31), 800), font=F(False, 31), fill=SUB + (255,))
+    # --- Reyting TOP-3 ---
+    import unicodedata as _ud
+    def clean_name(n):
+        n = _ud.normalize("NFKC", str(n or ""))
+        n = "".join(ch for ch in n if _ud.category(ch)[0] in "LN" or ch in " .'-")
+        n = " ".join(n.split())
+        return n or "Foydalanuvchi"
+    medals = [(250, 204, 21), (226, 232, 240), (251, 146, 60)]
+    ry = 452
+    top_r = s.get("top_rating", [])
+    if not top_r:
+        d.text((936, ry), "Hozircha ma'lumot yo'q", font=F(False, 32), fill=SUB + (255,))
+    for i, u in enumerate(top_r[:3]):
+        col = medals[i] if i < 3 else ACCENT
+        d.ellipse([936, ry, 988, ry + 52], fill=col + (255,))
+        d.text((962, ry + 26), str(i + 1), font=F(True, 30), fill=(40, 24, 8, 255), anchor="mm")
+        d.text((1012, ry + 2), fit(d, clean_name(u.get("name", "")), F(True, 34), 520), font=F(True, 34), fill=TITLE + (255,))
+        sc = fmt(u.get("score", 0))
+        fw = d.textlength(" ball", font=F(False, 24))
+        d.text((1864, ry + 12), " ball", font=F(False, 24), fill=SUB + (255,), anchor="ra")
+        d.text((1864 - fw, ry + 2), sc, font=F(True, 38), fill=ACCENT + (255,), anchor="ra")
+        ry += 108
+    return img.convert("RGB")
     tot, tod = s["totals"], s["today"]
     for (x, y), key in zip([(56, 168), (522, 168), (988, 168), (1454, 168)],
                            ["users", "tests", "attempts", "questions"]):
