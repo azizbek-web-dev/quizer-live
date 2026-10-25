@@ -192,7 +192,6 @@ def diag(push):
 
 def main():
     push = os.environ["RTMP_PUSH"]
-    diag(push)
     th = threading.Thread(target=fetch_loop, daemon=True); th.start()
     print("Birinchi statistika kutilmoqda...", flush=True)
     for _ in range(30):
