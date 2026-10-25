@@ -5,7 +5,7 @@ Statistika Beget dan SSH orqali, oqim RTMP orqali Telegram ga.
 import json, math, os, subprocess, threading, time
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
-W, H, FPS = 1920, 1080, 12
+W, H, FPS = 1920, 1080, 10
 BASE = os.path.dirname(os.path.abspath(__file__))
 SSH = ["ssh", "-i", os.environ.get("SSH_KEY_PATH", "key.pem"),
        "-o", "ConnectTimeout=12", "-o", "StrictHostKeyChecking=no",
@@ -67,22 +67,27 @@ def anim(key, target, speed=0.12):
 barsa = Image.open(f"{BASE}/assets/barsa.png").convert("RGBA")
 real = Image.open(f"{BASE}/assets/real.png").convert("RGBA")
 
-def build_plate():
-    bg = Image.open(f"{BASE}/assets/bg.webp").convert("RGB").resize((W, H), Image.LANCZOS)
-    ov = Image.new("RGB", (W, H), (96, 64, 190))
-    bg = Image.blend(bg, ov, 74 / 255).convert("RGBA")
+def _tinted_bg(w, h):
+    bg = Image.open(f"{BASE}/assets/bg.webp").convert("RGB").resize((w, h), Image.LANCZOS)
+    ov = Image.new("RGB", (w, h), (96, 64, 190))
+    return Image.blend(bg, ov, 74 / 255).convert("RGBA")
+
+BG_BIG = _tinted_bg(2112, 1188)  # jonli fon: sekin siljish (pan) uchun kattaroq
+
+def build_glass():
+    g = Image.new("RGBA", (W, H), (0, 0, 0, 0))
 
     def glass(box, r=30, fill_a=28):
         x0, y0, x1, y1 = box
         sh = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         sd = ImageDraw.Draw(sh)
         sd.rounded_rectangle([x0, y0 + 10, x1, y1 + 10], radius=r, fill=(0, 0, 0, 110))
-        bg.alpha_composite(sh.filter(ImageFilter.GaussianBlur(16)))
+        g.alpha_composite(sh.filter(ImageFilter.GaussianBlur(16)))
         layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         ld = ImageDraw.Draw(layer)
         ld.rounded_rectangle(box, radius=r, fill=(255, 255, 255, fill_a),
                              outline=(255, 255, 255, 90), width=2)
-        bg.alpha_composite(layer)
+        g.alpha_composite(layer)
 
     cells = [(56, 168), (522, 168), (988, 168), (1454, 168)]
     for (x, y) in cells:
@@ -90,7 +95,7 @@ def build_plate():
     glass([56, 372, 880, 540])                 # onlayn
     glass([56, 596, 880, 692], fill_a=44)      # bugun
     glass([936, 848, 1864, 976])               # klasiko
-    d = ImageDraw.Draw(bg)
+    d = ImageDraw.Draw(g)
     for (x, y), col in zip(cells, [ACCENT, ACCENT2, GOLD, GREEN]):
         d.rounded_rectangle([x, y + 18, x + 9, y + 150], radius=4, fill=col + (255,))
     labels = ["FOYDALANUVCHILAR", "TESTLAR", "URINISHLAR", "SAVOLLAR"]
@@ -107,18 +112,42 @@ def build_plate():
     d.text((1400, 892), "1 — 2", font=F(True, 50), fill=TITLE + (255,), anchor="ma")
     d.text((1400, 950), "Mbappé 41', 88'  •  Raphinha 61'", font=F(False, 22), fill=SUB + (255,), anchor="ma")
     b = barsa.resize((92, 92), Image.LANCZOS); r_ = real.resize((92, 92), Image.LANCZOS)
-    bg.paste(b, (972, 866), b); bg.paste(r_, (1736, 866), r_)
+    g.paste(b, (972, 866), b); g.paste(r_, (1736, 866), r_)
     d.text((1864, 1004), "Hakimov Azizbek", font=F(True, 29), fill=TITLE + (255,), anchor="ra")
     d.text((1864, 1040), "Full Stack dasturchi va tibbiyot talabasi", font=F(False, 23), fill=SUB + (255,), anchor="ra")
     d.text((56, 1022), "devmed.uz/quizer", font=F(False, 24), fill=SUB + (255,))
-    return bg
+    return g
 
-PLATE = build_plate()
+GLASS = build_glass()
+
+# Jonli fon elementlari: ko'tariluvchi pufakchalar + sokin nur shar
+import random as _rnd
+_r = _rnd.Random(42)
+BUBBLES = [(_r.uniform(0, W), _r.uniform(0, H + 200), _r.uniform(6, 26), _r.uniform(14, 38)) for _ in range(22)]
+_orb = Image.new("RGBA", (520, 520), (0, 0, 0, 0))
+_od = ImageDraw.Draw(_orb)
+_od.ellipse([60, 60, 460, 460], fill=(168, 110, 255, 52))
+ORB = _orb.filter(ImageFilter.GaussianBlur(80))
+
+
 
 def render(t):
     with stats_lock:
         s = dict(stats)
-    img = PLATE.copy()
+    ox = int(96 + 90 * math.sin(t * 2 * math.pi / 110))
+    oy = int(54 + 48 * math.cos(t * 2 * math.pi / 140))
+    img = BG_BIG.crop((ox, oy, ox + W, oy + H))
+    img.paste(ORB, (int(1150 + 260 * math.sin(t * 2 * math.pi / 90)) - 260,
+                    int(120 + 130 * math.cos(t * 2 * math.pi / 75)) - 260), ORB)
+    img.paste(ORB, (int(180 + 200 * math.cos(t * 2 * math.pi / 120)) - 260,
+                    int(560 + 120 * math.sin(t * 2 * math.pi / 95)) - 260), ORB)
+    od = ImageDraw.Draw(img, "RGBA")
+    for (bx, by, br, sp) in BUBBLES:
+        yy = (by - t * sp) % (H + 160) - 80
+        xx = bx + 14 * math.sin(t * 0.7 + by)
+        od.ellipse([xx - br, yy - br, xx + br, yy + br], fill=(255, 255, 255, 26),
+                   outline=(255, 255, 255, 70), width=2)
+    img.alpha_composite(GLASS)
     d = ImageDraw.Draw(img, "RGBA")
     pulse = 0.55 + 0.45 * math.sin(t * 3.2)
     d.ellipse([1470, 44, 1502, 76], fill=(239, 68, 68, int(140 + 115 * pulse)))
