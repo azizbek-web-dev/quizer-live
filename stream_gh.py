@@ -184,32 +184,50 @@ def main():
         with stats_lock:
             if stats: break
         time.sleep(1)
-    cmd = ["ffmpeg", "-y", "-v", "error",
+    cmd = ["ffmpeg", "-y", "-v", "info",
            "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast",
            "-b:v", "1700k", "-maxrate", "1900k", "-bufsize", "3400k", "-g", str(FPS * 2),
            "-f", "flv"]
     cmd += [push]
-    ff = subprocess.Popen(cmd, stdin=subprocess.PIPE)
-    print("EFIR BOSHLANDI", flush=True)
-    t0 = time.time()
-    try:
-        while True:
-            t = time.time() - t0
-            frame = render(t)
-            ff.stdin.write(frame.tobytes())
-            dt = time.time() - t0 - t
-            sleep = (1 / FPS) - dt
-            if sleep > 0: time.sleep(sleep)
-            if ff.poll() is not None:
-                print("ffmpeg to'xtadi, kod:", ff.returncode, flush=True)
-                break
-    except (BrokenPipeError, KeyboardInterrupt):
-        pass
-    finally:
-        globals()["stop"] = True
+    attempt = 0
+    while attempt < 200:
+        attempt += 1
+        err = open("ffmpeg.log", "ab")
+        ff = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=err)
+        print(f"EFIR BOSHLANDI (urinish {attempt})", flush=True)
+        t0 = time.time()
+        frames = 0
+        try:
+            while True:
+                t = time.time() - t0
+                frame = render(t)
+                ff.stdin.write(frame.tobytes())
+                frames += 1
+                if frames % 240 == 0:
+                    print(f" oqim: {frames} kadr, {t:.0f}s", flush=True)
+                dt = time.time() - t0 - t
+                sleep = (1 / FPS) - dt
+                if sleep > 0: time.sleep(sleep)
+                if ff.poll() is not None:
+                    break
+        except BrokenPipeError:
+            print("BrokenPipe: ffmpeg yopildi", flush=True)
+        except KeyboardInterrupt:
+            break
         try: ff.stdin.close()
         except Exception: pass
+        try: ff.wait(timeout=5)
+        except Exception: ff.kill()
+        err.close()
+        try:
+            tail = open("ffmpeg.log", "rb").read()[-1500:].decode("utf-8", "replace")
+            print("ffmpeg log (oxiri):\n", tail, flush=True)
+        except Exception:
+            pass
+        print("5s dan keyin qayta ulanish...", flush=True)
+        time.sleep(5)
+    globals()["stop"] = True
 
 if __name__ == "__main__":
     main()
