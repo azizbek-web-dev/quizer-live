@@ -245,8 +245,11 @@ def main():
         time.sleep(1)
     cmd = ["ffmpeg", "-y", "-v", "info",
            "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
+           "-stream_loop", "-1", "-i", f"{BASE}/assets/loop.mp3",
+           "-map", "0:v", "-map", "1:a",
            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast",
            "-b:v", "1700k", "-maxrate", "1900k", "-bufsize", "3400k", "-g", str(FPS * 2),
+           "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
            "-f", "flv", push]
     attempt = 0
     while attempt < 200:
