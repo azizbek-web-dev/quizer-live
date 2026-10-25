@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Quizer jonli efir (GitHub Actions): B-variant dizayn (binafsha, shisha kartalar).
-Statistika Beget dan SSH orqali, oqim RTMP orqali Telegram ga.
+"""Quizer jonli efir (GitHub Actions): v2 maket — barcha bloklar shisha kartalarda.
+Statistika Beget dan SSH orqali, oqim RTMP orqali Telegram ga. Fon jonli animatsiyalanadi.
 """
-import json, math, os, subprocess, threading, time
+import json, math, os, random as _rnd, subprocess, threading, time, unicodedata as _ud
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 W, H, FPS = 1920, 1080, 10
@@ -18,15 +18,8 @@ FR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 def F(bold, size):
     return ImageFont.truetype(FB if bold else FR, size)
 
-# --- B-variant palitra ---
-TITLE = (255, 255, 255)
-LABEL = (216, 205, 245)
-SUB = (196, 186, 232)
-ACCENT = (192, 132, 252)
-ACCENT2 = (244, 114, 182)
-GOLD = (250, 204, 21)
-GREEN = (52, 211, 153)
-RED = (248, 113, 113)
+TITLE = (255, 255, 255); LABEL = (216, 205, 245); SUB = (196, 186, 232)
+ACCENT = (192, 132, 252); ACCENT2 = (244, 114, 182); GOLD = (250, 204, 21); GREEN = (52, 211, 153)
 
 stats = {}
 stats_lock = threading.Lock()
@@ -55,6 +48,11 @@ def fit(d, s, f, maxw):
         s = s[:-1]
     return s
 
+def clean_name(n):
+    n = _ud.normalize("NFKC", str(n or ""))
+    n = "".join(ch for ch in n if _ud.category(ch)[0] in "LN" or ch in " .'-")
+    return " ".join(n.split()) or "Foydalanuvchi"
+
 disp = {}
 def anim(key, target, speed=0.12):
     cur = disp.get(key, float(target))
@@ -72,7 +70,7 @@ def _tinted_bg(w, h):
     ov = Image.new("RGB", (w, h), (96, 64, 190))
     return Image.blend(bg, ov, 74 / 255).convert("RGBA")
 
-BG_BIG = _tinted_bg(2112, 1188)  # jonli fon: sekin siljish (pan) uchun kattaroq
+BG_BIG = _tinted_bg(2112, 1188)
 
 def build_glass():
     g = Image.new("RGBA", (W, H), (0, 0, 0, 0))
@@ -86,50 +84,60 @@ def build_glass():
         layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         ld = ImageDraw.Draw(layer)
         ld.rounded_rectangle(box, radius=r, fill=(255, 255, 255, fill_a),
-                             outline=(255, 255, 255, 90), width=2)
+                             outline=(255, 255, 255, 95), width=2)
         g.alpha_composite(layer)
 
-    cells = [(56, 168), (522, 168), (988, 168), (1454, 168)]
+    cells = [(56, 152), (522, 152), (988, 152), (1454, 152)]
     for (x, y) in cells:
-        glass([x, y, x + 438, y + 168])
-    glass([56, 372, 880, 540])                 # onlayn
-    glass([56, 596, 880, 692], fill_a=44)      # bugun
-    glass([936, 848, 1864, 976])               # klasiko
+        glass([x, y, x + 438, y + 156])
+    glass([56, 332, 880, 480])                  # onlayn
+    glass([56, 496, 880, 576], fill_a=44)       # bugun
+    glass([56, 592, 880, 916])                  # oxirgi testlar
+    glass([936, 332, 1864, 704])                # reyting
+    glass([936, 720, 1864, 864])                # klasiko
+    glass([1180, 888, 1864, 984], r=48, fill_a=40)  # imzo pill
+
     d = ImageDraw.Draw(g)
     for (x, y), col in zip(cells, [ACCENT, ACCENT2, GOLD, GREEN]):
-        d.rounded_rectangle([x, y + 18, x + 9, y + 150], radius=4, fill=col + (255,))
-    labels = ["FOYDALANUVCHILAR", "TESTLAR", "URINISHLAR", "SAVOLLAR"]
-    for (x, y), lab in zip(cells, labels):
-        d.text((x + 32, y + 24), lab, font=F(True, 29), fill=LABEL + (255,))
-    d.text((56, 34), "QUIZER", font=F(True, 64), fill=ACCENT + (255,))
-    d.text((58, 106), "JONLI STATISTIKA EFIRI", font=F(True, 27), fill=SUB + (255,))
-    d.text((1514, 40), "LIVE", font=F(True, 38), fill=TITLE + (255,))
-    d.text((162, 404), "HOZIR ONLAYN", font=F(True, 33), fill=LABEL + (255,))
-    d.text((848, 420), "oxirgi 30 daqiqada faol:", font=F(False, 27), fill=SUB + (255,), anchor="ra")
-    d.text((936, 372), "REYTING — TOP 3", font=F(True, 34), fill=TITLE + (255,))
-    d.text((56, 736), "OXIRGI TESTLAR", font=F(True, 31), fill=TITLE + (255,))
-    d.text((1400, 860), "EL KLASIKO", font=F(True, 26), fill=GOLD + (255,), anchor="ma")
-    d.text((1400, 892), "1 — 2", font=F(True, 50), fill=TITLE + (255,), anchor="ma")
-    d.text((1400, 950), "Mbappé 41', 88'  •  Raphinha 61'", font=F(False, 22), fill=SUB + (255,), anchor="ma")
-    b = barsa.resize((92, 92), Image.LANCZOS); r_ = real.resize((92, 92), Image.LANCZOS)
-    g.paste(b, (972, 866), b); g.paste(r_, (1736, 866), r_)
-    d.text((1864, 1004), "Hakimov Azizbek", font=F(True, 29), fill=TITLE + (255,), anchor="ra")
-    d.text((1864, 1040), "Full Stack dasturchi va tibbiyot talabasi", font=F(False, 23), fill=SUB + (255,), anchor="ra")
+        d.rounded_rectangle([x, y + 18, x + 9, y + 138], radius=4, fill=col + (255,))
+    for (x, y), lab in zip(cells, ["FOYDALANUVCHILAR", "TESTLAR", "URINISHLAR", "SAVOLLAR"]):
+        d.text((x + 32, y + 24), lab, font=F(True, 28), fill=LABEL + (255,))
+    d.text((56, 30), "QUIZER", font=F(True, 60), fill=ACCENT + (255,))
+    d.text((58, 98), "JONLI STATISTIKA EFIRI", font=F(True, 26), fill=SUB + (255,))
+    d.text((1512, 36), "LIVE", font=F(True, 36), fill=TITLE + (255,))
+    # onlayn karta statik matnlari
+    d.text((156, 362), "HOZIR ONLAYN", font=F(True, 31), fill=LABEL + (255,))
+    d.line([452, 356, 452, 456], fill=(255, 255, 255, 60), width=2)
+    d.text((480, 362), "HOZIR YECHILMOQDA", font=F(True, 22), fill=SUB + (255,))
+    # oxirgi testlar sarlavhasi
+    d.text((88, 616), "OXIRGI TESTLAR", font=F(True, 30), fill=TITLE + (255,))
+    d.rounded_rectangle([88, 664, 150, 670], radius=3, fill=ACCENT + (255,))
+    # reyting sarlavhasi
+    d.text((968, 356), "REYTING", font=F(True, 32), fill=TITLE + (255,))
+    d.text((1832, 362), "TOP 3", font=F(True, 24), fill=GOLD + (255,), anchor="ra")
+    d.rounded_rectangle([968, 404, 1030, 410], radius=3, fill=ACCENT + (255,))
+    # klasiko
+    d.text((1400, 736), "EL KLASIKO", font=F(True, 25), fill=GOLD + (255,), anchor="ma")
+    d.text((1400, 768), "1 — 2", font=F(True, 48), fill=TITLE + (255,), anchor="ma")
+    d.text((1400, 826), "Mbappé 41', 88'  •  Raphinha 61'", font=F(False, 21), fill=SUB + (255,), anchor="ma")
+    b = barsa.resize((88, 88), Image.LANCZOS); r_ = real.resize((88, 88), Image.LANCZOS)
+    g.paste(b, (972, 748), b); g.paste(r_, (1740, 748), r_)
+    # imzo pill
+    d.ellipse([1204, 908, 1268, 972], fill=ACCENT + (255,))
+    d.text((1236, 940), "AH", font=F(True, 30), fill=(255, 255, 255, 255), anchor="mm")
+    d.text((1288, 906), "Hakimov Azizbek", font=F(True, 29), fill=TITLE + (255,))
+    d.text((1288, 944), "Full Stack dasturchi va tibbiyot talabasi", font=F(False, 22), fill=SUB + (255,))
     d.text((56, 1022), "devmed.uz/quizer", font=F(False, 24), fill=SUB + (255,))
     return g
 
 GLASS = build_glass()
 
-# Jonli fon elementlari: ko'tariluvchi pufakchalar + sokin nur shar
-import random as _rnd
 _r = _rnd.Random(42)
 BUBBLES = [(_r.uniform(0, W), _r.uniform(0, H + 200), _r.uniform(6, 26), _r.uniform(14, 38)) for _ in range(22)]
 _orb = Image.new("RGBA", (520, 520), (0, 0, 0, 0))
 _od = ImageDraw.Draw(_orb)
 _od.ellipse([60, 60, 460, 460], fill=(168, 110, 255, 52))
 ORB = _orb.filter(ImageFilter.GaussianBlur(80))
-
-
 
 def render(t):
     with stats_lock:
@@ -149,87 +157,82 @@ def render(t):
                    outline=(255, 255, 255, 70), width=2)
     img.alpha_composite(GLASS)
     d = ImageDraw.Draw(img, "RGBA")
+
     pulse = 0.55 + 0.45 * math.sin(t * 3.2)
-    d.ellipse([1470, 44, 1502, 76], fill=(239, 68, 68, int(140 + 115 * pulse)))
-    d.text((1864, 40), s.get("time_tashkent", "--:--"), font=F(True, 44), fill=TITLE + (255,), anchor="ra")
-    d.text((1864, 92), s.get("date_tashkent", ""), font=F(False, 25), fill=SUB + (255,), anchor="ra")
+    d.ellipse([1470, 40, 1500, 70], fill=(239, 68, 68, int(140 + 115 * pulse)))
+    d.text((1864, 36), s.get("time_tashkent", "--:--"), font=F(True, 42), fill=TITLE + (255,), anchor="ra")
+    d.text((1864, 86), s.get("date_tashkent", ""), font=F(False, 24), fill=SUB + (255,), anchor="ra")
     if not s:
-        d.text((W // 2, 520), "Ma'lumot yuklanmoqda...", font=F(True, 46), fill=SUB + (255,), anchor="ma")
+        d.text((W // 2, 540), "Ma'lumot yuklanmoqda...", font=F(True, 44), fill=SUB + (255,), anchor="ma")
         return img.convert("RGB")
     tot, tod = s["totals"], s["today"]
-    for (x, y), key in zip([(56, 168), (522, 168), (988, 168), (1454, 168)],
+
+    for (x, y), key in zip([(56, 152), (522, 152), (988, 152), (1454, 152)],
                            ["users", "tests", "attempts", "questions"]):
-        d.text((x + 32, y + 64), fmt(anim(key, tot[key])), font=F(True, 74), fill=TITLE + (255,))
-    gp = 0.5 + 0.5 * math.sin(t * 2.6)
-    d.ellipse([96, 428, 140, 472], fill=(52, 211, 153, int(120 + 135 * gp)))
-    d.text((162, 444), fmt(anim("on5", s.get("online5", 0), 0.2)), font=F(True, 62), fill=GREEN + (255,))
-    d.text((848, 456), fmt(anim("on30", s.get("online30", 0), 0.2)), font=F(True, 42), fill=TITLE + (255,), anchor="ra")
-    if s.get("online5", 0) == 0 and s.get("online30", 0) == 0:
-        d.text((468, 556), "Tungi rejim — shahar uxlayapti, ertalab jonlanamiz", font=F(False, 27), fill=GOLD + (255,), anchor="ma")
+        d.text((x + 32, y + 62), fmt(anim(key, tot[key])), font=F(True, 72), fill=TITLE + (255,))
+
+    # --- Onlayn ---
+    cx, cy = 114, 410
+    for ph in (0.0, 0.5):
+        rr = 16 + 14 * ((t * 0.55 + ph) % 1.0)
+        al = int(140 * (1 - ((t * 0.55 + ph) % 1.0)))
+        d.ellipse([cx - rr, cy - rr, cx + rr, cy + rr], outline=(52, 211, 153, max(al, 0)), width=3)
+    d.ellipse([cx - 12, cy - 12, cx + 12, cy + 12], fill=GREEN + (255,))
+    on5 = s.get("online5", 0)
+    num = fmt(anim("on5", on5, 0.2))
+    d.text((156, 400), num, font=F(True, 60), fill=GREEN + (255,))
+    nw = d.textlength(num, font=F(True, 60))
+    d.text((156 + nw + 16, 428), "foydalanuvchi", font=F(False, 24), fill=SUB + (255,))
+    solving = [x for x in (s.get("solving_now") or []) if str(x).strip()]
+    if solving:
+        cur = solving[int(t // 6) % len(solving)]
+        d.text((480, 398), fit(d, clean_name(cur), F(True, 32), 350), font=F(True, 32), fill=TITLE + (255,))
+        sub = f"va yana {len(solving) - 1} ta test yechilmoqda" if len(solving) > 1 else "test yechilmoqda"
+        d.text((480, 438), sub, font=F(False, 24), fill=SUB + (255,))
+    elif on5 == 0:
+        d.text((480, 398), "Tungi rejim", font=F(True, 32), fill=GOLD + (255,))
+        d.text((480, 438), "ertalab jonlanamiz", font=F(False, 24), fill=SUB + (255,))
+    else:
+        d.text((480, 398), "Faollik past", font=F(True, 32), fill=TITLE + (255,))
+        d.text((480, 438), "hozircha test yechilmayapti", font=F(False, 24), fill=SUB + (255,))
+
+    # --- Bugun ---
     line = (f"BUGUN:  +{tod['users']} yangi   •   {tod['tests']} test   •   "
             f"{tod['attempts']} urinish   •   {tod['uploads_done']} tayyor")
-    f = F(True, 31)
-    d.text((468, 628), fit(d, line, f, 780), font=f, fill=GREEN + (255,), anchor="ma")
-    for j, tt in enumerate(s.get("recent_tests", [])[:4]):
-        d.text((56, 786 + j * 48), "•  " + fit(d, tt["title"], F(False, 31), 800), font=F(False, 31), fill=SUB + (255,))
+    f = F(True, 30)
+    d.text((468, 520), fit(d, line, f, 780), font=f, fill=GREEN + (255,), anchor="ma")
+
+    # --- Oxirgi testlar ---
+    tests = s.get("recent_tests", [])[:4]
+    ry = 692
+    for j, tt in enumerate(tests):
+        d.ellipse([96, ry + 12, 112, ry + 28], fill=ACCENT2 + (255,))
+        d.text((132, ry), fit(d, tt["title"], F(False, 32), 700), font=F(False, 32), fill=TITLE + (255,))
+        ry += 54
+        if j < len(tests) - 1:
+            d.line([96, ry - 12, 848, ry - 12], fill=(255, 255, 255, 40), width=1)
+
     # --- Reyting TOP-3 ---
-    import unicodedata as _ud
-    def clean_name(n):
-        n = _ud.normalize("NFKC", str(n or ""))
-        n = "".join(ch for ch in n if _ud.category(ch)[0] in "LN" or ch in " .'-")
-        n = " ".join(n.split())
-        return n or "Foydalanuvchi"
-    medals = [(250, 204, 21), (226, 232, 240), (251, 146, 60)]
-    ry = 452
+    medals = [GOLD, (226, 232, 240), (251, 146, 60)]
     top_r = s.get("top_rating", [])
     if not top_r:
-        d.text((936, ry), "Hozircha ma'lumot yo'q", font=F(False, 32), fill=SUB + (255,))
+        d.text((968, 452), "Hozircha ma'lumot yo'q", font=F(False, 32), fill=SUB + (255,))
+    ry = 428
     for i, u in enumerate(top_r[:3]):
-        col = medals[i] if i < 3 else ACCENT
-        d.ellipse([936, ry, 988, ry + 52], fill=col + (255,))
-        d.text((962, ry + 26), str(i + 1), font=F(True, 30), fill=(40, 24, 8, 255), anchor="mm")
-        d.text((1012, ry + 2), fit(d, clean_name(u.get("name", "")), F(True, 34), 520), font=F(True, 34), fill=TITLE + (255,))
+        if i == 0:
+            hl = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+            hd = ImageDraw.Draw(hl)
+            hd.rounded_rectangle([956, ry - 8, 1844, ry + 72], radius=20, fill=(250, 204, 21, 30))
+            img.alpha_composite(hl)
+            d = ImageDraw.Draw(img, "RGBA")
+        d.ellipse([968, ry, 1024, ry + 56], fill=medals[i] + (255,))
+        d.text((996, ry + 28), str(i + 1), font=F(True, 30), fill=(40, 24, 8, 255), anchor="mm")
+        d.text((1048, ry + 6), fit(d, clean_name(u.get("name", "")), F(True, 33), 470), font=F(True, 33), fill=TITLE + (255,))
         sc = fmt(u.get("score", 0))
-        fw = d.textlength(" ball", font=F(False, 24))
-        d.text((1864, ry + 12), " ball", font=F(False, 24), fill=SUB + (255,), anchor="ra")
-        d.text((1864 - fw, ry + 2), sc, font=F(True, 38), fill=ACCENT + (255,), anchor="ra")
-        ry += 108
-    return img.convert("RGB")
-    tot, tod = s["totals"], s["today"]
-    for (x, y), key in zip([(56, 168), (522, 168), (988, 168), (1454, 168)],
-                           ["users", "tests", "attempts", "questions"]):
-        d.text((x + 32, y + 64), fmt(anim(key, tot[key])), font=F(True, 74), fill=TITLE + (255,))
-    gp = 0.5 + 0.5 * math.sin(t * 2.6)
-    d.ellipse([96, 428, 140, 472], fill=(52, 211, 153, int(120 + 135 * gp)))
-    d.text((162, 444), fmt(anim("on5", s.get("online5", 0), 0.2)), font=F(True, 62), fill=GREEN + (255,))
-    d.text((848, 456), fmt(anim("on30", s.get("online30", 0), 0.2)), font=F(True, 42), fill=TITLE + (255,), anchor="ra")
-    if s.get("online5", 0) == 0 and s.get("online30", 0) == 0:
-        d.text((468, 556), "Tungi rejim — shahar uxlayapti, ertalab jonlanamiz", font=F(False, 27), fill=GOLD + (255,), anchor="ma")
-    line = (f"BUGUN:  +{tod['users']} yangi   •   {tod['tests']} test   •   "
-            f"{tod['attempts']} urinish   •   {tod['uploads_done']} tayyor")
-    f = F(True, 31)
-    d.text((468, 628), fit(d, line, f, 780), font=f, fill=GREEN + (255,), anchor="ma")
-    for j, tt in enumerate(s.get("recent_tests", [])[:4]):
-        d.text((56, 786 + j * 48), "•  " + fit(d, tt["title"], F(False, 31), 800), font=F(False, 31), fill=SUB + (255,))
-    scope = "bugun" if s.get("top_scope") == "today" else "jami"
-    d.text((1864, 376), f"({scope})", font=F(False, 27), fill=SUB + (255,), anchor="ra")
-    tops = s.get("top_universities", [])[:5]
-    total_att = max(tot["attempts"], 1)
-    shown = sum(x["c"] for x in tops)
-    rows = [(x["name"], x["c"]) for x in tops]
-    rest = total_att - shown
-    if rest > 0 and len(rows) >= 1:
-        rows.append(("Boshqalar", rest))
-    maxc = max([c for _, c in rows], default=1)
-    ry = 436
-    for name, c in rows[:5]:
-        d.text((936, ry), fit(d, name, F(False, 30), 640), font=F(False, 30), fill=TITLE + (255,))
-        d.text((1864, ry), fmt(c), font=F(True, 32), fill=ACCENT + (255,), anchor="ra")
-        bw = int(928 * (c / maxc) * (0.25 + 0.75 * min(1.0, (t % 100) / 1.5)))
-        d.rounded_rectangle([936, ry + 44, 936 + max(bw, 26), ry + 62], radius=9, fill=ACCENT + (200,))
-        ry += 86
-    if not rows:
-        d.text((936, ry), "Hozircha ma'lumot yo'q", font=F(False, 32), fill=SUB + (255,))
+        fw = d.textlength(" ball", font=F(False, 23))
+        d.text((1832, ry + 16), " ball", font=F(False, 23), fill=SUB + (255,), anchor="ra")
+        d.text((1832 - fw, ry + 6), sc, font=F(True, 36), fill=ACCENT + (255,), anchor="ra")
+        ry += 92
     return img.convert("RGB")
 
 def main():
