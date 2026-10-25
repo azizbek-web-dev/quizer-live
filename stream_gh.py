@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Quizer jonli efir: statistika ekrani -> RTMP (Telegram live).
-Bloklar: katta raqamlar (2), universitetlar faolligi (3), hozir onlayn (4),
-burchakda muallif imzosi va hazilomuz El Klasiko kartasi.
+"""Quizer jonli efir (GitHub Actions): B-variant dizayn (binafsha, shisha kartalar).
+Statistika Beget dan SSH orqali, oqim RTMP orqali Telegram ga.
 """
-import json, math, os, subprocess, sys, threading, time
-from PIL import Image, ImageDraw, ImageFont
+import json, math, os, subprocess, threading, time
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 W, H, FPS = 1920, 1080, 12
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -19,16 +18,15 @@ FR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 def F(bold, size):
     return ImageFont.truetype(FB if bold else FR, size)
 
-BG = (9, 20, 34)
-CARD = (16, 36, 56)
-CARD2 = (13, 30, 47)
-CYAN = (45, 212, 191)
-BLUE = (56, 150, 248)
-WHITE = (240, 248, 252)
-GRAY = (148, 178, 198)
+# --- B-variant palitra ---
+TITLE = (255, 255, 255)
+LABEL = (216, 205, 245)
+SUB = (196, 186, 232)
+ACCENT = (192, 132, 252)
+ACCENT2 = (244, 114, 182)
+GOLD = (250, 204, 21)
 GREEN = (52, 211, 153)
 RED = (248, 113, 113)
-GOLD = (250, 204, 21)
 
 stats = {}
 stats_lock = threading.Lock()
@@ -52,18 +50,12 @@ def fetch_loop():
 def fmt(n):
     return f"{int(round(n)):,}".replace(",", " ")
 
-def card(d, box, fill=CARD, r=28):
-    d.rounded_rectangle(box, radius=r, fill=fill)
-
-def txt(d, x, y, s, f, fill, anchor="la"):
-    d.text((x, y), s, font=f, fill=fill, anchor=anchor)
-
-def fit(s, f, maxw):
-    while s and f.getlength(s) > maxw:
+def fit(d, s, f, maxw):
+    while s and d.textlength(s, font=f) > maxw:
         s = s[:-1]
     return s
 
-disp = {}  # animatsiyalanadigan sonlar
+disp = {}
 def anim(key, target, speed=0.12):
     cur = disp.get(key, float(target))
     cur += (float(target) - cur) * speed
@@ -75,67 +67,84 @@ def anim(key, target, speed=0.12):
 barsa = Image.open(f"{BASE}/assets/barsa.png").convert("RGBA")
 real = Image.open(f"{BASE}/assets/real.png").convert("RGBA")
 
+def build_plate():
+    bg = Image.open(f"{BASE}/assets/bg.webp").convert("RGB").resize((W, H), Image.LANCZOS)
+    ov = Image.new("RGB", (W, H), (96, 64, 190))
+    bg = Image.blend(bg, ov, 74 / 255).convert("RGBA")
+
+    def glass(box, r=30, fill_a=28):
+        x0, y0, x1, y1 = box
+        sh = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        sd = ImageDraw.Draw(sh)
+        sd.rounded_rectangle([x0, y0 + 10, x1, y1 + 10], radius=r, fill=(0, 0, 0, 110))
+        bg.alpha_composite(sh.filter(ImageFilter.GaussianBlur(16)))
+        layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        ld = ImageDraw.Draw(layer)
+        ld.rounded_rectangle(box, radius=r, fill=(255, 255, 255, fill_a),
+                             outline=(255, 255, 255, 90), width=2)
+        bg.alpha_composite(layer)
+
+    cells = [(56, 168), (522, 168), (988, 168), (1454, 168)]
+    for (x, y) in cells:
+        glass([x, y, x + 438, y + 168])
+    glass([56, 372, 880, 540])                 # onlayn
+    glass([56, 596, 880, 692], fill_a=44)      # bugun
+    glass([936, 848, 1864, 976])               # klasiko
+    d = ImageDraw.Draw(bg)
+    for (x, y), col in zip(cells, [ACCENT, ACCENT2, GOLD, GREEN]):
+        d.rounded_rectangle([x, y + 18, x + 9, y + 150], radius=4, fill=col + (255,))
+    labels = ["FOYDALANUVCHILAR", "TESTLAR", "URINISHLAR", "SAVOLLAR"]
+    for (x, y), lab in zip(cells, labels):
+        d.text((x + 32, y + 24), lab, font=F(True, 29), fill=LABEL + (255,))
+    d.text((56, 34), "QUIZER", font=F(True, 64), fill=ACCENT + (255,))
+    d.text((58, 106), "JONLI STATISTIKA EFIRI", font=F(True, 27), fill=SUB + (255,))
+    d.text((1514, 40), "LIVE", font=F(True, 38), fill=TITLE + (255,))
+    d.text((162, 404), "HOZIR ONLAYN", font=F(True, 33), fill=LABEL + (255,))
+    d.text((848, 420), "oxirgi 30 daqiqada faol:", font=F(False, 27), fill=SUB + (255,), anchor="ra")
+    d.text((936, 372), "UNIVERSITETLAR FAOLLIGI", font=F(True, 34), fill=TITLE + (255,))
+    d.text((56, 736), "OXIRGI TESTLAR", font=F(True, 31), fill=TITLE + (255,))
+    d.text((1400, 860), "EL KLASIKO", font=F(True, 26), fill=GOLD + (255,), anchor="ma")
+    d.text((1400, 892), "1 — 2", font=F(True, 50), fill=TITLE + (255,), anchor="ma")
+    d.text((1400, 950), "Mbappé 41', 88'  •  Raphinha 61'", font=F(False, 22), fill=SUB + (255,), anchor="ma")
+    b = barsa.resize((92, 92), Image.LANCZOS); r_ = real.resize((92, 92), Image.LANCZOS)
+    bg.paste(b, (972, 866), b); bg.paste(r_, (1736, 866), r_)
+    d.text((1864, 1004), "Hakimov Azizbek", font=F(True, 29), fill=TITLE + (255,), anchor="ra")
+    d.text((1864, 1040), "Full Stack dasturchi va tibbiyot talabasi", font=F(False, 23), fill=SUB + (255,), anchor="ra")
+    d.text((56, 1022), "devmed.uz/quizer", font=F(False, 24), fill=SUB + (255,))
+    return bg
+
+PLATE = build_plate()
+
 def render(t):
     with stats_lock:
         s = dict(stats)
-    img = Image.new("RGB", (W, H), BG)
+    img = PLATE.copy()
     d = ImageDraw.Draw(img, "RGBA")
-    for (cx, cy, r, col) in [(1830, 90, 320, (45, 212, 191, 16)), (40, 1020, 360, (56, 150, 248, 14))]:
-        d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=col)
-
-    # --- Sarlavha ---
-    txt(d, 56, 34, "QUIZER", F(True, 62), CYAN)
-    txt(d, 58, 104, "JONLI STATISTIKA EFIRI", F(True, 27), GRAY)
     pulse = 0.55 + 0.45 * math.sin(t * 3.2)
     d.ellipse([1470, 44, 1502, 76], fill=(239, 68, 68, int(140 + 115 * pulse)))
-    txt(d, 1514, 40, "LIVE", F(True, 38), WHITE)
-    txt(d, 1864, 40, s.get("time_tashkent", "--:--"), F(True, 44), WHITE, anchor="ra")
-    txt(d, 1864, 92, s.get("date_tashkent", ""), F(False, 25), GRAY, anchor="ra")
-
+    d.text((1864, 40), s.get("time_tashkent", "--:--"), font=F(True, 44), fill=TITLE + (255,), anchor="ra")
+    d.text((1864, 92), s.get("date_tashkent", ""), font=F(False, 25), fill=SUB + (255,), anchor="ra")
     if not s:
-        txt(d, W // 2, 520, "Ma'lumot yuklanmoqda...", F(True, 46), GRAY, anchor="ma")
-        return img
-
+        d.text((W // 2, 520), "Ma'lumot yuklanmoqda...", font=F(True, 46), fill=SUB + (255,), anchor="ma")
+        return img.convert("RGB")
     tot, tod = s["totals"], s["today"]
-
-    # --- (2) Katta raqamlar: 4 ta karta qator ---
-    cells = [("FOYDALANUVCHILAR", "users", CYAN), ("TESTLAR", "tests", BLUE),
-             ("URINISHLAR", "attempts", GOLD), ("SAVOLLAR", "questions", GREEN)]
-    cw, ch, gap, x0, y0 = 438, 168, 28, 56, 168
-    for i, (label, key, col) in enumerate(cells):
-        x = x0 + i * (cw + gap)
-        card(d, [x, y0, x + cw, y0 + ch], CARD2)
-        d.rectangle([x, y0 + 16, x + 8, y0 + ch - 16], fill=col)
-        txt(d, x + 32, y0 + 24, label, F(True, 29), GRAY)
-        txt(d, x + 32, y0 + 66, fmt(anim(key, tot[key])), F(True, 72), WHITE)
-
-    # --- Chap ustun: onlayn + bugun ---
-    card(d, [56, 372, 880, 540])
+    for (x, y), key in zip([(56, 168), (522, 168), (988, 168), (1454, 168)],
+                           ["users", "tests", "attempts", "questions"]):
+        d.text((x + 32, y + 64), fmt(anim(key, tot[key])), font=F(True, 74), fill=TITLE + (255,))
     gp = 0.5 + 0.5 * math.sin(t * 2.6)
     d.ellipse([96, 428, 140, 472], fill=(52, 211, 153, int(120 + 135 * gp)))
-    txt(d, 162, 404, "HOZIR ONLAYN", F(True, 33), GRAY)
-    txt(d, 162, 446, fmt(anim("on5", s.get("online5", 0), 0.2)), F(True, 60), GREEN)
-    txt(d, 848, 420, "oxirgi 30 daqiqada faol:", F(False, 27), GRAY, anchor="ra")
-    txt(d, 848, 458, fmt(anim("on30", s.get("online30", 0), 0.2)), F(True, 42), WHITE, anchor="ra")
+    d.text((162, 444), fmt(anim("on5", s.get("online5", 0), 0.2)), font=F(True, 62), fill=GREEN + (255,))
+    d.text((848, 456), fmt(anim("on30", s.get("online30", 0), 0.2)), font=F(True, 42), fill=TITLE + (255,), anchor="ra")
     if s.get("online5", 0) == 0 and s.get("online30", 0) == 0:
-        txt(d, 468, 556, "Tungi rejim — shahar uxlayapti, ertalab jonlanamiz", F(False, 27), GOLD, anchor="ma")
-
-    card(d, [56, 596, 880, 692], (20, 46, 40))
+        d.text((468, 556), "Tungi rejim — shahar uxlayapti, ertalab jonlanamiz", font=F(False, 27), fill=GOLD + (255,), anchor="ma")
     line = (f"BUGUN:  +{tod['users']} yangi   •   {tod['tests']} test   •   "
             f"{tod['attempts']} urinish   •   {tod['uploads_done']} tayyor")
-    f = F(True, 32)
-    txt(d, 468, 626, fit(line, f, 790), f, GREEN, anchor="ma")
-
-    # --- Oxirgi testlar (chap past) ---
-    txt(d, 56, 736, "OXIRGI TESTLAR", F(True, 31), WHITE)
+    f = F(True, 31)
+    d.text((468, 628), fit(d, line, f, 780), font=f, fill=GREEN + (255,), anchor="ma")
     for j, tt in enumerate(s.get("recent_tests", [])[:4]):
-        txt(d, 56, 786 + j * 48, "•  " + fit(tt["title"], F(False, 31), 800), F(False, 31), GRAY)
-
-    # --- (3) Universitetlar faolligi (o'ng katta blok) ---
-    ux, uy = 936, 372
+        d.text((56, 786 + j * 48), "•  " + fit(d, tt["title"], F(False, 31), 800), font=F(False, 31), fill=SUB + (255,))
     scope = "bugun" if s.get("top_scope") == "today" else "jami"
-    txt(d, ux, uy, "UNIVERSITETLAR FAOLLIGI", F(True, 34), WHITE)
-    txt(d, 1864, uy + 4, f"({scope})", F(False, 27), GRAY, anchor="ra")
+    d.text((1864, 376), f"({scope})", font=F(False, 27), fill=SUB + (255,), anchor="ra")
     tops = s.get("top_universities", [])[:5]
     total_att = max(tot["attempts"], 1)
     shown = sum(x["c"] for x in tops)
@@ -144,44 +153,16 @@ def render(t):
     if rest > 0 and len(rows) >= 1:
         rows.append(("Boshqalar", rest))
     maxc = max([c for _, c in rows], default=1)
-    ry = uy + 64
+    ry = 436
     for name, c in rows[:5]:
-        txt(d, ux, ry, fit(name, F(False, 30), 640), F(False, 30), WHITE)
-        txt(d, 1864, ry, fmt(c), F(True, 32), CYAN, anchor="ra")
+        d.text((936, ry), fit(d, name, F(False, 30), 640), font=F(False, 30), fill=TITLE + (255,))
+        d.text((1864, ry), fmt(c), font=F(True, 32), fill=ACCENT + (255,), anchor="ra")
         bw = int(928 * (c / maxc) * (0.25 + 0.75 * min(1.0, (t % 100) / 1.5)))
-        d.rounded_rectangle([ux, ry + 44, ux + max(bw, 26), ry + 62], radius=9, fill=(45, 212, 191, 190))
+        d.rounded_rectangle([936, ry + 44, 936 + max(bw, 26), ry + 62], radius=9, fill=ACCENT + (200,))
         ry += 86
     if not rows:
-        txt(d, ux, ry, "Hozircha ma'lumot yo'q", F(False, 32), GRAY)
-
-    # --- El Klasiko (o'ng past) ---
-    ey = 848
-    card(d, [936, ey, 1864, ey + 128], (24, 32, 58))
-    b = barsa.resize((92, 92), Image.LANCZOS); r_ = real.resize((92, 92), Image.LANCZOS)
-    img.paste(b, (972, ey + 18), b); img.paste(r_, (1736, ey + 18), r_)
-    txt(d, 1400, ey + 12, "EL KLASIKO", F(True, 26), GOLD, anchor="ma")
-    txt(d, 1400, ey + 44, "1 — 2", F(True, 50), WHITE, anchor="ma")
-    txt(d, 1400, ey + 102, "Mbappé 41', 88'  •  Raphinha 61'", F(False, 22), GRAY, anchor="ma")
-
-    # --- Imzo (burchak) ---
-    txt(d, 1864, 1004, "Hakimov Azizbek", F(True, 29), WHITE, anchor="ra")
-    txt(d, 1864, 1040, "Full Stack dasturchi va tibbiyot talabasi", F(False, 23), GRAY, anchor="ra")
-    txt(d, 56, 1022, "devmed.uz/quizer", F(False, 24), (90, 120, 140), anchor="la")
-    return img
-
-def diag(push):
-    print("DIAGNOSTIKA boshlanmoqda...", flush=True)
-    cmd = ["ffmpeg", "-y", "-v", "info", "-re",
-           "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=15", "-t", "6",
-           "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast", "-b:v", "600k",
-           "-f", "flv", push]
-    try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=40)
-        print("DIAG rc:", r.returncode, flush=True)
-        print("DIAG stderr:\n", (r.stderr or "")[-2200:], flush=True)
-    except subprocess.TimeoutExpired as e:
-        print("DIAG: 40s timeout — ulanish osilib qoldi", flush=True)
-        print(((e.stderr or b"")[-1200:]).decode("utf-8", "replace"), flush=True)
+        d.text((936, ry), "Hozircha ma'lumot yo'q", font=F(False, 32), fill=SUB + (255,))
+    return img.convert("RGB")
 
 def main():
     push = os.environ["RTMP_PUSH"]
@@ -195,8 +176,7 @@ def main():
            "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast",
            "-b:v", "1700k", "-maxrate", "1900k", "-bufsize", "3400k", "-g", str(FPS * 2),
-           "-f", "flv"]
-    cmd += [push]
+           "-f", "flv", push]
     attempt = 0
     while attempt < 200:
         attempt += 1
@@ -228,7 +208,7 @@ def main():
         except Exception: ff.kill()
         err.close()
         try:
-            tail = open("ffmpeg.log", "rb").read()[-1500:].decode("utf-8", "replace")
+            tail = open("ffmpeg.log", "rb").read()[-1200:].decode("utf-8", "replace")
             print("ffmpeg log (oxiri):\n", tail, flush=True)
         except Exception:
             pass
