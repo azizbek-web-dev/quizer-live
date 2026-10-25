@@ -25,4 +25,5 @@ jobs:
         env:
           RTMP_PUSH: ${{ secrets.RTMP_PUSH }}
           SSH_KEY_PATH: key.pem
+          SSH_TARGET: ${{ secrets.SSH_TARGET }}
         run: python3 stream_gh.py

@@ -10,7 +10,7 @@ W, H, FPS = 1080, 1920, 12
 BASE = os.path.dirname(os.path.abspath(__file__))
 SSH = ["ssh", "-i", os.environ.get("SSH_KEY_PATH", "key.pem"),
        "-o", "ConnectTimeout=12", "-o", "StrictHostKeyChecking=no",
-       "-o", "BatchMode=yes", "-p", "22", "grizzly26@5.101.157.232",
+       "-o", "BatchMode=yes", "-p", "22", os.environ.get("SSH_TARGET", ""),
        "timeout 40 php8.4 /home/g/grizzly26/qstats.php 2>/dev/null"]
 
 FB = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
