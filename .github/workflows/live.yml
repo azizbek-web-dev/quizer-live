@@ -1,0 +1,28 @@
+name: Quizer Live Stream
+
+on:
+  workflow_dispatch:
+
+jobs:
+  stream:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tayyorlov (ffmpeg, shriftlar, Pillow)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core > /dev/null
+          pip install --quiet pillow
+
+      - name: SSH kalit
+        run: |
+          echo "${{ secrets.SSH_KEY }}" > key.pem
+          chmod 600 key.pem
+
+      - name: Efir
+        env:
+          RTMP_PUSH: ${{ secrets.RTMP_PUSH }}
+          SSH_KEY_PATH: key.pem
+        run: python3 stream_gh.py
