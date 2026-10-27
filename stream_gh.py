@@ -190,8 +190,16 @@ def render(t):
         sub = f"va yana {len(solving) - 1} ta test yechilmoqda" if len(solving) > 1 else "test yechilmoqda"
         d.text((480, 438), sub, font=F(False, 24), fill=SUB + (255,))
     elif on5 == 0:
-        d.text((480, 398), "Tungi rejim", font=F(True, 32), fill=GOLD + (255,))
-        d.text((480, 438), "ertalab jonlanamiz", font=F(False, 24), fill=SUB + (255,))
+        try:
+            hour = int(str(s.get("time_tashkent", "")).split(":")[0])
+        except Exception:
+            hour = -1
+        if hour >= 23 or 0 <= hour < 7:
+            d.text((480, 398), "Tungi rejim", font=F(True, 32), fill=GOLD + (255,))
+            d.text((480, 438), "ertalab jonlanamiz", font=F(False, 24), fill=SUB + (255,))
+        else:
+            d.text((480, 398), "Hozir jimlik", font=F(True, 32), fill=TITLE + (255,))
+            d.text((480, 438), "hech kim test yechmayapti", font=F(False, 24), fill=SUB + (255,))
     else:
         d.text((480, 398), "Faollik past", font=F(True, 32), fill=TITLE + (255,))
         d.text((480, 438), "hozircha test yechilmayapti", font=F(False, 24), fill=SUB + (255,))
