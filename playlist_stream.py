@@ -4,14 +4,14 @@
 Tayyor videolar (960x540, h264+AAC, bir xil format) GitHub Release
 (playlist-v1) dan yuklab olinadi va cheksiz halqada Telegram RTMP
 efiriga uzatiladi. Tartib — foydalanuvchi yuborgan tartib.
-Bir halqa: ~31 daqiqa 48 soniya (8 video).
+Bir halqa: ~28 daqiqa (7 video; Shohruhxon — Qo'g'irchoq 2026-10-29 olib tashlandi).
 YouTube dan to'g'ridan yuklash GH serverlarida bloklangani uchun
 videolar oldindan tayyorlanib Release ga qo'yilgan.
 """
 import os, subprocess, sys, time
 
 BASE_URL = "https://github.com/azizbek-web-dev/quizer-live/releases/download/playlist-v1"
-FILES = [f"norm{i}.mp4" for i in range(8)]
+FILES = [f"norm{i}.mp4" for i in range(7)]
 RTMP = os.environ.get("RTMP_PUSH", "")
 WORK = "/tmp/playlist_work"
 os.makedirs(WORK, exist_ok=True)
@@ -50,7 +50,7 @@ def main():
     with open(lst, "w") as f:
         for p in paths:
             f.write(f"file '{p}'\n")
-    log("Playlist tayyor: 8/8 video")
+    log(f"Playlist tayyor: {len(paths)}/{len(FILES)} video")
     while True:
         log("EFIR BOSHLANDI (loop)")
         rc = run([
