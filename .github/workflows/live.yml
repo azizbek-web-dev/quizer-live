@@ -10,13 +10,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Tayyorlov (ffmpeg static + Pillow)
+      - name: Tayyorlov (ffmpeg static + yt-dlp)
         run: |
           curl -sL https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz -o /tmp/ff.tar.xz
           tar -xJf /tmp/ff.tar.xz -C /tmp
           sudo cp /tmp/ffmpeg-master-*/bin/ffmpeg /usr/local/bin/
           ffmpeg -version | head -1
-          pip install --quiet pillow
+          pip install --quiet yt-dlp
+          yt-dlp --version
 
       - name: SSH kalit
         run: |
@@ -28,4 +29,4 @@ jobs:
           RTMP_PUSH: ${{ secrets.RTMP_PUSH }}
           SSH_KEY_PATH: key.pem
           SSH_TARGET: ${{ secrets.SSH_TARGET }}
-        run: python3 stream_gh.py
+        run: python3 playlist_stream.py
