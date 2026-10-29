@@ -10,14 +10,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Tayyorlov (ffmpeg static + yt-dlp)
+      - name: Tayyorlov (ffmpeg static)
         run: |
           curl -sL https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz -o /tmp/ff.tar.xz
           tar -xJf /tmp/ff.tar.xz -C /tmp
           sudo cp /tmp/ffmpeg-master-*/bin/ffmpeg /usr/local/bin/
           ffmpeg -version | head -1
-          pip install --quiet yt-dlp
-          yt-dlp --version
 
       - name: SSH kalit
         run: |
